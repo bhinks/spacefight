@@ -30,7 +30,22 @@
     LDX player_y
     STX shot1_y
     INC shot_count
+    ; try to play a sound
+    LDA #%10111111 ; Duty 10, Volume F (maximum)
+    STA $4000
+
+    LDA #$C9    ; 0C9 is a C# in NTSC mode
+    STA $4002
+    LDA #$00
+    STA $4003
+    JMP end
+
   skip:
+    LDA #$00
+    STA $4002
+    LDA #$00
+    STA $4003
+  end:
     RTS
 .endproc
 

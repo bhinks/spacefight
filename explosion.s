@@ -61,6 +61,15 @@
   ADC #$08
   STA $023f
 
+  ; play explosion sound on noise channel
+  LDA #%00111111 ; Volume F (maximum)
+  STA $400c
+
+  LDA #$AA   ; 0C9 is a C# in NTSC mode
+  STA $400e
+  LDA #$00
+  STA $400f
+
   ; check explosion frame count and advance to the next set of tiles when appropriate
   LDA explosion_frames
   CMP #10
@@ -111,6 +120,13 @@
     STA dead
     STA enemy_died
     STA explosion_frames
+    LDA #%00110000 ; Drop volume to 0
+    STA $400c
+
+    LDA #$00
+    STA $400e
+    LDA #$00
+    STA $400f
     JMP end
   advance_frame:
     INC explosion_frames
