@@ -23,7 +23,7 @@
   check_zero:
     LDA shot_count
     CMP #$00
-    BNE skip
+    BNE check_one
     LDA player_x
     ADC #$03
     STA shot1_x
@@ -32,14 +32,21 @@
     LDA shot_count
     EOR #%00000001
     STA shot_count
-    ; try to play a sound
-    LDA #%10111111 ; Duty 10, Volume F (maximum)
-    STA $4000
-
-    LDA #$C9    ; 0C9 is a C# in NTSC mode
-    STA $4002
-    LDA #$00
-    STA $4003
+    JSR play_sound
+  check_one:
+    LDA shot_count
+    AND #%00000001
+    CMP #%00000001
+    BNE skip
+    LDA player_x
+    ADC #$03
+    STA shot2_x
+    LDX player_y
+    STX shot2_y
+    LDA shot_count
+    EOR #%00000010
+    STA shot_count
+    JSR play_sound
     JMP end
 
   skip:
@@ -51,16 +58,30 @@
     RTS
 .endproc
 
+.proc play_sound
+  ; try to play a sound
+  LDA #%10111111 ; Duty 10, Volume F (maximum)
+  STA $4000
+
+  LDA #$C9    ; 0C9 is a C# in NTSC mode
+  STA $4002
+  LDA #$00
+  STA $4003
+  RTS
+.endproc
+
 .proc draw_shots
 
   ; write empty tile for bullet until one if fired
   LDA #$00
   STA $0221
+  STA $0225
  
   ; write bullet tile attributes
   ; use palette 3
   LDA #%00000011
   STA $0222
+  STA $0226
 
   ; check current shot count
   ; only one shot is allowed on the screen at a time currently
@@ -69,12 +90,22 @@
     LDA shot_count
     AND #%00000001
     CMP #%00000001
-    BNE skip
+    BNE check_two
     STY $0221
     LDA shot1_y
     STA $0220
     LDA shot1_x
     STA $0223
+  check_two:
+    LDA shot_count
+    AND #%00000010
+    CMP #%00000010
+    BNE skip
+    STY $0225
+    LDA shot2_y
+    STA $0224
+    LDA shot2_x
+    STA $0227
   
   skip:
 
@@ -84,22 +115,38 @@
 .proc update_shots
 
   LDA shot_count
-  CMP #$00
-  BEQ exit_subroutine
+  AND #%00000001
+  CMP #%00000001
+  BNE check_two
+  
+  DEC shot1_y
+  DEC shot1_y
+  DEC shot1_y
+  DEC shot1_y
 
-  DEC shot1_y
-  DEC shot1_y
-  DEC shot1_y
-  DEC shot1_y
+  check_two:
+  LDA shot_count
+  AND #%00000010
+  CMP #%00000010
+  BNE edge_one
+
+  DEC shot2_y
+  DEC shot2_y
+  DEC shot2_y
+  DEC shot2_y
 
   ; check if bullet has hit the top of the screen
-  edge_check:
+  edge_one:
     LDA shot1_y
     CMP #$10
-    BCC stop_shot_up
-    JMP exit_subroutine
+    BCC stop_one_up
+    JMP edge_two
 
-  stop_shot_up:
+  stop_one_up:
+    LDA shot_count
+    AND #%00000001
+    CMP #%00000001
+    BNE edge_two
     LDA #$00
     STA $0220
     STA $0221
@@ -107,6 +154,25 @@
     STA $0223
     LDA shot_count
     EOR #%00000001
+    STA shot_count
+
+  edge_two:
+    LDA shot2_y
+    CMP #$10
+    BCC stop_two_up
+    JMP exit_subroutine
+  stop_two_up:
+    LDA shot_count
+    AND #%00000010
+    CMP #%00000010
+    BNE exit_subroutine
+    LDA #$00
+    STA $0224
+    STA $0225
+    STA $0226
+    STA $0227
+    LDA shot_count
+    EOR #%00000010
     STA shot_count
 
   exit_subroutine:
@@ -118,6 +184,9 @@
   CMP #$00
   BEQ end
   ; check for shot collision with enemy
+  AND #%00000010
+  CMP #%00000010
+  BEQ test_two_x
   test_x:
     LDA shot1_x
     SBC enemy_x
@@ -144,9 +213,41 @@
     BEQ kill_enemy
     BCC kill_enemy
     JMP end
+  test_two_x:
+    LDA shot2_x
+    SBC enemy_x
+    CMP #$0f
+    BEQ test_two_y
+    BCC test_two_y
+    LDA shot2_x
+    ADC #$10
+    SBC enemy_x
+    CMP #$0f
+    BEQ test_two_y
+    BCC test_two_y
+    JMP end
+  test_two_y:
+    LDA shot2_y
+    SBC enemy_y
+    CMP #$0f
+    BEQ kill_enemy
+    BCC kill_enemy
+    LDA shot2_y
+    ADC #$10
+    SBC enemy_y
+    CMP #$0f
+    BEQ kill_enemy
+    BCC kill_enemy
+    JMP end
   ; remove enemy and bullet sprites from the screen on a hit
   kill_enemy:
-    LDA enemy_x
+    JSR kill
+  end:
+    RTS
+.endproc
+
+.proc kill
+  LDA enemy_x
     STA explosion_x
     LDA enemy_y
     STA explosion_y
@@ -155,6 +256,12 @@
     STA $0221
     STA $0222
     STA $0223
+
+    STA $0224
+    STA $0225
+    STA $0226
+    STA $0227
+
     STA $0211
     STA $0215
     STA $0219
@@ -176,6 +283,5 @@
     STA explosion_frames
     LDA #$01
     STA enemy_died
-  end:
-    RTS
+  RTS
 .endproc
