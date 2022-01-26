@@ -20,8 +20,8 @@
     AND #%01000000
     CMP #%01000000
     BNE skip
-  LDA shot_count
   check_zero:
+    LDA shot_count
     CMP #$00
     BNE skip
     LDA player_x
@@ -29,7 +29,9 @@
     STA shot1_x
     LDX player_y
     STX shot1_y
-    INC shot_count
+    LDA shot_count
+    EOR #%00000001
+    STA shot_count
     ; try to play a sound
     LDA #%10111111 ; Duty 10, Volume F (maximum)
     STA $4000
@@ -50,13 +52,7 @@
 .endproc
 
 .proc draw_shots
-  ; save registers
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
+
   ; write empty tile for bullet until one if fired
   LDA #$00
   STA $0221
@@ -69,9 +65,10 @@
   ; check current shot count
   ; only one shot is allowed on the screen at a time currently
   LDY #$09
-  LDA shot_count
   check_one:
-    CMP #$01
+    LDA shot_count
+    AND #%00000001
+    CMP #%00000001
     BNE skip
     STY $0221
     LDA shot1_y
@@ -81,23 +78,14 @@
   
   skip:
 
-  ; restore registers and return
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
   RTS
 .endproc
 
 .proc update_shots
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
+
+  LDA shot_count
+  CMP #$00
+  BEQ exit_subroutine
 
   DEC shot1_y
   DEC shot1_y
@@ -117,16 +105,11 @@
     STA $0221
     STA $0222
     STA $0223
+    LDA shot_count
+    EOR #%00000001
     STA shot_count
 
   exit_subroutine:
-    ; all done, clean up and return
-    PLA
-    TAY
-    PLA
-    TAX
-    PLA
-    PLP
     RTS
 .endproc
 
